@@ -94,23 +94,35 @@ class CourseViewSet(viewsets.ViewSet):
     def update_resource(self, request, pk=None):
         if not self.is_admin(request.user):
             return Response({"error": "Permission denied"}, status=403)
+
         course = Course.objects(id=pk).first()
         if not course:
             return Response({"error": "Course not found"}, status=404)
+
         field_name = request.data.get("field")
         old_url = request.data.get("old_url")
         file_obj = request.FILES.get("file")
+
         if not all([field_name, old_url, file_obj]) or not hasattr(course, field_name):
             return Response({"error": "Invalid input"}, status=400)
-        resources = getattr(course, field_name)
+
+    # copy list (important)
+        resources = list(getattr(course, field_name))
+
         if old_url not in resources:
             return Response({"error": "Old URL not found"}, status=400)
+
         delete_image(extract_public_id(old_url))
         new_url = upload_image(file_obj, folder="iiuc_connect_courses")
-        resources[resources.index(old_url)] = new_url
+
+        idx = resources.index(old_url)
+        resources[idx] = new_url
+
         setattr(course, field_name, resources)
         course.save()
+
         return Response({"message": "Resource updated", "url": new_url})
+
 
     @action(detail=True, methods=["delete"])
     def delete_resource(self, request, pk=None):

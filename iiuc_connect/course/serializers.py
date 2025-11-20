@@ -12,18 +12,10 @@ class CourseSerializer(serializers.Serializer):
     course_code = serializers.CharField()
     department = serializers.CharField(required=True)
     credit_hour = serializers.IntegerField()
-    mid_theory_resources = serializers.ListField(
-        child=serializers.CharField(), required=False, default=list
-    )
-    mid_previous_solves = serializers.ListField(
-        child=serializers.CharField(), required=False, default=list
-    )
-    final_resources = serializers.ListField(
-        child=serializers.CharField(), required=False, default=list
-    )
-    final_previous_solves = serializers.ListField(
-        child=serializers.CharField(), required=False, default=list
-    )
+    mid_theory_resources = serializers.ListField(child=serializers.CharField(), required=False)
+    mid_previous_solves = serializers.ListField(child=serializers.CharField(), required=False)
+    final_resources = serializers.ListField(child=serializers.CharField(), required=False)
+    final_previous_solves = serializers.ListField(child=serializers.CharField(), required=False)
 
     def create(self, validated_data):
         dept = validated_data.pop("department", None)
@@ -40,8 +32,19 @@ class CourseSerializer(serializers.Serializer):
             if isinstance(dept, str):
                 dept = Department.objects(id=dept).first()
             instance.department = dept
+
+        # ⛔ These lists must NOT be overwritten
+        skip_fields = [
+            "mid_theory_resources",
+            "mid_previous_solves",
+            "final_resources",
+            "final_previous_solves"
+        ]
+
         for key, value in validated_data.items():
-            setattr(instance, key, value)
+            if key not in skip_fields:
+                setattr(instance, key, value)
+
         instance.save()
         return instance
 
@@ -58,7 +61,7 @@ class CourseSerializer(serializers.Serializer):
             "mid_previous_solves": instance.mid_previous_solves or [],
             "final_resources": instance.final_resources or [],
             "final_previous_solves": instance.final_previous_solves or [],
-    }
+        }
 
 
 

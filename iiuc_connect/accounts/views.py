@@ -35,11 +35,17 @@ def delete_image(public_id):
     """Delete file from Cloudinary using public_id"""
     try:
         result = cloudinary.uploader.destroy(public_id, invalidate=True)
-        if result.get("result") != "ok":
-            raise Exception(f"Failed to delete image: {result}")
-        return True
+
+        # Accept both 'ok' and 'not found'
+        if result.get("result") in ["ok", "not found"]:
+            return True
+
+        # Only raise error for genuine failures
+        raise Exception(f"Failed to delete image: {result}")
+
     except CloudinaryError as e:
         raise Exception(f"Cloudinary delete error: {str(e)}")
+
     
 from urllib.parse import urlparse
 
