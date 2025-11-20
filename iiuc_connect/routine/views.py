@@ -6,6 +6,11 @@ from .models import Routine
 from .serializers import RoutineSerializer
 from course.models import CourseRegistration
 from accounts.authentication import JWTAuthentication
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .models import Routine
+from notification.utils import create_notification
+
 
 class RoutineViewSet(viewsets.ModelViewSet):
     serializer_class = RoutineSerializer
@@ -22,15 +27,24 @@ class RoutineViewSet(viewsets.ModelViewSet):
 
         if self.is_admin(user):
             return Routine.objects.all()
+
         elif self.is_teacher(user):
             return Routine.objects(teacher=user)
+
         else:
-            # Student: fetch registered courses & sections
-            regs = CourseRegistration.objects(student=user, status="confirmed")
-            query = Q()
-            for r in regs:
-                query |= Q(course=r.course, section=r.section)
-            return Routine.objects(query)
+        # Student
+            regs = CourseRegistration.objects(student=user, status="confirmed").only('course', 'section')
+
+            if not regs:
+                return Routine.objects.none()   # Important: no registration -> no routine
+
+            course_ids = [r.course.id for r in regs]
+            sections = [r.section for r in regs]
+
+            return Routine.objects(
+                Q(course__in=course_ids) & Q(section__in=sections)
+            )
+
 
     def create(self, request, *args, **kwargs):
         if not self.is_admin(request.user):
@@ -56,11 +70,18 @@ class RoutineViewSet(viewsets.ModelViewSet):
                 section=routine.section,
                 status="confirmed"
             ).save()
+        create_notification(
+            user=routine.teacher,
+            title="Assigned as Teacher",
+            message=f"You have been assigned as the teacher for {routine.course.course_code} (Section {routine.section}).",
+            notification_type="course_update"
+        )
 
         return Response(
             {"message": "Routine created & teacher registered", "routine": serializer.data},
             status=status.HTTP_201_CREATED
         )
+        
 
     def update(self, request, *args, **kwargs):
         routine = self.get_object()
@@ -71,5 +92,18 @@ class RoutineViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         routine = self.get_object()
+
+    # Delete all registrations under this routine
+        CourseRegistration.objects(
+            course=routine.course,
+            section=routine.section
+        ).delete()
+
+    # Delete the routine
         routine.delete()
-        return Response({"message": "Routine deleted"}, status=status.HTTP_200_OK)
+
+        return Response(
+            {"message": "Routine deleted + all related registrations removed"},
+            status=status.HTTP_200_OK
+        )
+

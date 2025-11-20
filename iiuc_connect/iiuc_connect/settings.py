@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'course',
     'routine',
     'event',
+    'notification',
 ]
 
 MIDDLEWARE = [

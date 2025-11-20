@@ -3,6 +3,17 @@ from mongoengine import Document, StringField, EmailField, DateTimeField,IntFiel
 import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from django.utils import timezone
+from mongoengine import ReferenceField
+
+class Department(Document):
+    name = StringField(required=True, unique=True)
+    code = StringField(required=True, unique=True)
+    created_at = DateTimeField(default=datetime.datetime.utcnow)
+    is_active = StringField(choices=['yes', 'no'], default='yes')
+    meta = {
+        'collection': 'departments',
+        'indexes': ['name', 'code']
+    }
 
 class User(Document):
     student_id = StringField(required=True, unique=True)       # unique, indexed
@@ -15,7 +26,7 @@ class User(Document):
     is_verified = StringField(choices=['yes','no'], default='no') 
     is_active = StringField(choices=['yes','no'], default='no') # email verified
     role = StringField(choices=['student', 'admin', 'teacher'], default='student')
-    department = StringField()       # optional
+    department = ReferenceField(Department, required=False)       # optional
     batch = StringField()            # optional
     profile_picture = StringField()  # URL (Cloudinary)
     otp_count = IntField(default=0)
@@ -35,12 +46,3 @@ class User(Document):
         return check_password_hash(self.password_hash, password)
 
 
-class Department(Document):
-    name = StringField(required=True, unique=True)
-    code = StringField(required=True, unique=True)
-    created_at = DateTimeField(default=datetime.datetime.utcnow)
-    is_active = StringField(choices=['yes', 'no'], default='yes')
-    meta = {
-        'collection': 'departments',
-        'indexes': ['name', 'code']
-    }

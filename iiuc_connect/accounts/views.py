@@ -73,6 +73,14 @@ class RegisterAPIView(APIView):
             return Response({"error": "student_id already exists"}, status=400)
         if User.objects(email=data["email"]).first():
             return Response({"error": "email already exists"}, status=400)
+        
+        department_code = data.get("department")
+        department_obj = None
+        if department_code:
+            department_obj = Department.objects(code=department_code).first()
+            if not department_obj:
+                return Response({"error": "Invalid department code"}, status=400)
+
         email = data["email"]
         if email.endswith("@ugrad.iiuc.ac.bd"):
             is_active =  "yes"
@@ -85,7 +93,7 @@ class RegisterAPIView(APIView):
             profile_picture="",  # default empty string
             is_active=is_active,
             role=data.get("role", "student"),
-            department=data.get("department"), 
+            department=department_obj,
         )
         user.set_password(data["password"])
 
@@ -250,7 +258,7 @@ class ProfileAPIView(APIView):
             "email": user.email,
             "name": user.name,
             "role": user.role,
-            "department": user.department,
+            "department": user.department.code if user.department else None,
             "batch": user.batch,
             "profile_picture": user.profile_picture,
             "is_verified": user.is_verified,
@@ -265,14 +273,20 @@ class ProfileAPIView(APIView):
             return Response(serializer.errors, status=400)
 
         validated = serializer.validated_data
-        for field in ["name", "department", "batch"]:
+        for field in ["name", "batch"]:
             if field in validated:
                 setattr(user, field, validated[field])
                 
+        if "department" in validated:
+            code = validated["department"]
+            dept = Department.objects(code=code).first()
+            if not dept:
+                return Response({"error": "Invalid department code"}, status=400)
+            user.department = dept
 
         if "profile_picture" in request.FILES:
             try:
-                if user.profile_picture:
+                if user.profile_picture and len(user.profile_picture) > 10:
                     try:
                         old_id = extract_public_id(user.profile_picture)
                         delete_image(old_id)
