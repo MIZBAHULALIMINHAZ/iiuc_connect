@@ -33,3 +33,31 @@ class JWTAuthentication(BaseAuthentication):
         # DRF expects a (user, auth) tuple. Since we don't have a Django user object,
         # return the mongoengine Document as user and the raw token as auth.
         return (user, token)
+
+
+import jwt
+from django.conf import settings
+from rest_framework import authentication, exceptions
+from event.models import GuestUser
+
+class GuestJWTAuthentication(authentication.BaseAuthentication):
+    def authenticate(self, request):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return None
+
+        token = auth_header.replace("Bearer ", "")
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            raise exceptions.AuthenticationFailed("Token expired")
+        except jwt.InvalidTokenError:
+            raise exceptions.AuthenticationFailed("Invalid token")
+
+        guest_id = payload.get("guest_id")
+        try:
+            guest = GuestUser.objects.get(id=guest_id)
+        except GuestUser.DoesNotExist:
+            raise exceptions.AuthenticationFailed("Guest not found")
+
+        return (guest, None)

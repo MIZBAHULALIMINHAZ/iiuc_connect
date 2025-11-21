@@ -74,12 +74,18 @@ class RegisterAPIView(APIView):
         if User.objects(email=data["email"]).first():
             return Response({"error": "email already exists"}, status=400)
         
-        department_code = data.get("department")
+        from bson import ObjectId  # যদি ID string আকারে আসে
+
+        department_id = data.get("department")
         department_obj = None
-        if department_code:
-            department_obj = Department.objects(code=department_code).first()
+        if department_id:
+            try:
+                department_obj = Department.objects(id=ObjectId(department_id)).first()
+            except Exception:
+                return Response({"error": "Invalid department ID"}, status=400)
             if not department_obj:
-                return Response({"error": "Invalid department code"}, status=400)
+                return Response({"error": "Department not found"}, status=404)
+
 
         email = data["email"]
         if email.endswith("@ugrad.iiuc.ac.bd"):
