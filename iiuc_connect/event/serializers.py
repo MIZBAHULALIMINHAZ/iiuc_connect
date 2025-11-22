@@ -7,17 +7,16 @@ from django.conf import settings
 from django.core.mail import send_mail
 import random
 import string
+from rest_framework import serializers
+from .models import GuestUser
 
-# ----------------------------
-# Send Email Helper (Reused)
-# ----------------------------
+
+
 def send_event_email(email, title, message):
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or settings.EMAIL_HOST_USER
     send_mail(title, message, from_email, [email], fail_silently=False)
 
-# ----------------------------
-# Event Serializer
-# ----------------------------
+
 class EventSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     title = serializers.CharField()
@@ -105,9 +104,6 @@ class EventRegistrationSerializer(serializers.Serializer):
         return reg
 
 
-# ----------------------------
-# Payment Serializer
-# ----------------------------
 class EventPaymentSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     registration = serializers.CharField()
@@ -127,8 +123,6 @@ class EventPaymentSerializer(serializers.Serializer):
             screenshot=validated_data.get("screenshot")
         )
         pay.save()
-
-        # update registration status
         reg.status = "payment_submitted"
         reg.save()
 
@@ -143,8 +137,6 @@ class EventPaymentSerializer(serializers.Serializer):
         return pay
 
 
-from rest_framework import serializers
-from .models import GuestUser
 
 class GuestUserSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)

@@ -1,20 +1,27 @@
 # event/views.py
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from mongoengine.queryset.visitor import Q
 from django.utils import timezone
 from accounts.authentication import GuestJWTAuthentication
 
-from .models import Event, EventRegistration, EventPayment
+from .models import Event, EventRegistration, EventPayment,GuestUser
 from .serializers import (
     EventSerializer, EventRegistrationSerializer,
     EventPaymentSerializer
 )
-
-from accounts.authentication import JWTAuthentication
 from accounts.models import User
-
+from rest_framework.views import APIView
+from django.core.mail import send_mail
+from django.conf import settings
+from .serializers import GuestUserSerializer
+from accounts.authentication import JWTAuthentication
+import jwt
+from django.utils import timezone
+from .utils import delete_guests_for_event
+from notification.utils import create_notification
+from bson import ObjectId
+from mongoengine.errors import ValidationError
 
 class EventViewSet(viewsets.ViewSet):
     authentication_classes = [JWTAuthentication]
@@ -95,13 +102,7 @@ class EventPaymentViewSet(viewsets.ViewSet):
         return Response({"error": "Invalid action"}, status=400)
 
 
-import jwt
-from django.conf import settings
-from django.utils import timezone
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from .models import GuestUser
-from .serializers import GuestUserSerializer
+
 
 class GuestLoginView(APIView):
     """
@@ -135,19 +136,9 @@ class GuestLoginView(APIView):
 
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.core.mail import send_mail
-from django.conf import settings
-from .models import GuestUser, Event
-from .serializers import GuestUserSerializer
-from accounts.authentication import JWTAuthentication
+
 
 class GuestRegisterView(APIView):
-    """
-    Register guest for a single event at a time.
-    Only creator or managers can register.
-    """
     authentication_classes = [JWTAuthentication]
 
     def post(self, request):
@@ -157,8 +148,16 @@ class GuestRegisterView(APIView):
         event_id = request.data.get("event")  # single event
         login_url = request.data.get("login_url")
 
-        if not email or not password or not event_id or not login_url:
-            return Response({"error": "Email, password, event, and login_url required"}, status=400)
+        if not email:
+            return Response({"error": "Email required"}, status=400)
+        
+        if  not login_url:
+            return Response({"error": "login_url required"}, status=400)
+        
+        if  not password :
+            return Response({"error": "Password required"}, status=400)
+        if  not event_id :
+            return Response({"error": "Event required"}, status=400)
 
         try:
             event = Event.objects.get(id=event_id)
@@ -184,7 +183,7 @@ class GuestRegisterView(APIView):
         message_text = f"""
 Hello {guest.name},
 
-You have been registered for the event:
+You have been invited for the event:
 
 Event: {event.title}
 Description: {event.description or ""}
@@ -207,14 +206,6 @@ Thank you!
             "guest": GuestUserSerializer(guest).data
         })
 
-
-
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.utils import timezone
-from .utils import delete_guests_for_event
-from event.models import Event
 
 class EndEventView(APIView):
     """
@@ -296,22 +287,6 @@ class GuestEventDetailView(APIView):
         serializer = EventSerializer(event)
         return Response(serializer.data)
 
-# event/views.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.core.mail import send_mail
-from django.conf import settings
-from django.utils import timezone
-
-from .models import Event, GuestUser
-from .serializers import EventSerializer
-from accounts.authentication import JWTAuthentication
-from notification.utils import create_notification
-
-
-from bson import ObjectId
-from mongoengine.errors import ValidationError
 
 class EventEditView(APIView):
     authentication_classes = [JWTAuthentication]

@@ -21,13 +21,13 @@ class User(Document):
     name = StringField(required=True)
     password_hash = StringField(required=True)
     created_at = DateTimeField(default=timezone.now)
-    otp = StringField()               # for email verification or password reset
-    otp_created_at = DateTimeField()  # timestamp for OTP validity
+    otp = StringField()               
+    otp_created_at = DateTimeField()  # OTP validity
     is_verified = StringField(choices=['yes','no'], default='no') 
     is_active = StringField(choices=['yes','no'], default='no') # email verified
     role = StringField(choices=['student', 'admin', 'teacher'], default='student')
-    department = ReferenceField(Department, required=False)       # optional
-    batch = StringField()            # optional
+    department = ReferenceField(Department, required=False)    
+    batch = StringField()           
     profile_picture = StringField()  # URL (Cloudinary)
     otp_count = IntField(default=0)
 

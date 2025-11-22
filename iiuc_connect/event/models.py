@@ -7,6 +7,10 @@ from mongoengine import (
 from django.utils import timezone
 from accounts.models import User, Department
 import datetime
+from mongoengine import Document, StringField, EmailField, DateTimeField, ListField
+from werkzeug.security import generate_password_hash, check_password_hash
+from django.utils import timezone
+
 
 
 class Event(Document):
@@ -62,9 +66,9 @@ class EventRegistration(Document):
 class EventPayment(Document):
     registration = ReferenceField(EventRegistration, required=True)
     amount = FloatField(required=True)
-    method = StringField(required=True)  # bkash / nagad / card
+    method = StringField(required=True)
     trx_id = StringField(required=True)
-    screenshot = StringField()  # URL if uploaded
+    screenshot = StringField() 
     
     submitted_at = DateTimeField(default=timezone.now)
 
@@ -80,11 +84,6 @@ class EventPayment(Document):
         "indexes": ["verification_status", "trx_id"]
     }
 
-
-# event/models.py
-from mongoengine import Document, StringField, EmailField, DateTimeField, ListField
-from werkzeug.security import generate_password_hash, check_password_hash
-from django.utils import timezone
 
 class GuestUser(Document):
     email = EmailField(required=True, unique=True)
