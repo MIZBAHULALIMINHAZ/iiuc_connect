@@ -13,16 +13,16 @@ Frontend applications and other clients consume this API separately.
 •	Secure Token-Based Authorization (JWT)
 * This README contains public-safe information only. Sensitive configurations, environment variables, or credentials are intentionally excluded.
 
-2.	Project Structure
-iiuc_connect/
-├── accounts/          # User authentication & profile
-├── course/            # Course & registration management
-├── routine/           # Academic schedule management
-├── notification/      # WebSocket & notification system
-├── event/             # Event Management
-├── iiuc_connect/      # Project settings & ASGI configuration
-├── manage.py
-└── requirements.txt	#Dependency
+2.	Project Structure <br/>
+iiuc_connect/ <br/>
+├── accounts/          # User authentication & profile <br/>
+├── course/            # Course & registration management <br/>
+├── routine/           # Academic schedule management <br/>
+├── notification/      # WebSocket & notification system <br/>
+├── event/             # Event Management <br/>
+├── iiuc_connect/      # Project settings & ASGI configuration <br/>
+├── manage.py <br/>
+└── requirements.txt	#Dependency <br/>
 
 
 3.	API Overview
