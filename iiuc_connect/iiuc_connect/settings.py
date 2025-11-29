@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'event',
     'notification',
     'corsheaders',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -89,11 +90,28 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'iiuc_connect.wsgi.application'
 
+ASGI_APPLICATION = "iiuc_connect.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
+
+# for deploy
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [("127.0.0.1", 6379)],
+#         },
+#     },
+# }
+
 # DATABASES
-# Not used by MongoEngine. Leave empty if no Django ORM usage.
 DATABASES = {}
 
-# Password validation (for Django admin, if used)
+# Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',},

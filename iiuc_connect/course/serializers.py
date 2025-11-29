@@ -33,7 +33,7 @@ class CourseSerializer(serializers.Serializer):
                 dept = Department.objects(id=dept).first()
             instance.department = dept
 
-        # ⛔ These lists must NOT be overwritten
+        #These lists must NOT be overwritten
         skip_fields = [
             "mid_theory_resources",
             "mid_previous_solves",
@@ -146,4 +146,9 @@ class PaymentSerializer(serializers.Serializer):
         reg.save()
 
         return payment
+    def update(self, instance, validated_data):
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.save()
+        return instance
 

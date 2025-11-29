@@ -1,5 +1,5 @@
 import mongoengine as me
-from accounts.models import Department, User  # ধরে নিচ্ছি Department model আছে
+from accounts.models import Department, User 
 
 
 class Course(me.Document):

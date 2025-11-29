@@ -1,4 +1,5 @@
 # accounts/views.py
+from notification.utils import create_notification
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.utils import timezone
@@ -20,6 +21,10 @@ from rest_framework.permissions import IsAuthenticated
 from accounts.authentication import JWTAuthentication
 from cloudinary.exceptions import Error as CloudinaryError
 from urllib.parse import urlparse
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from bson import ObjectId 
+
 
 def upload_image(file_obj, folder="iiuc_connect_profiles"):
     try:
@@ -36,11 +41,9 @@ def delete_image(public_id):
     try:
         result = cloudinary.uploader.destroy(public_id, invalidate=True)
 
-        # Accept both 'ok' and 'not found'
         if result.get("result") in ["ok", "not found"]:
             return True
 
-        # Only raise error for genuine failures
         raise Exception(f"Failed to delete image: {result}")
 
     except CloudinaryError as e:
@@ -68,14 +71,12 @@ class RegisterAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
-        # uniqueness checks
         if User.objects(student_id=data["student_id"]).first():
             return Response({"error": "student_id already exists"}, status=400)
         if User.objects(email=data["email"]).first():
             return Response({"error": "email already exists"}, status=400)
         
-        from bson import ObjectId  # যদি ID string আকারে আসে
-
+        
         department_id = data.get("department")
         department_obj = None
         if department_id:
@@ -96,14 +97,13 @@ class RegisterAPIView(APIView):
             student_id=data["student_id"],
             email=data["email"],
             name=data["name"],
-            profile_picture="",  # default empty string
+            profile_picture="",  
             is_active=is_active,
             role=data.get("role", "student"),
             department=department_obj,
         )
         user.set_password(data["password"])
 
-        # handle profile picture file -> upload to cloudinary and store URL
         if "profile_picture" in request.FILES:
             try:
                 user.profile_picture = upload_image(request.FILES["profile_picture"])
@@ -115,7 +115,7 @@ class RegisterAPIView(APIView):
         return Response({"message": "User created. OTP sent to email."}, status=201)
 
 
-# Login -> returns JWT if verified
+# Login
 class LoginAPIView(APIView):
     permission_classes = (permissions.AllowAny,)
 
@@ -142,7 +142,6 @@ class LoginAPIView(APIView):
         if user.is_active != "yes":
             return Response({"error": "Email is from outside. wait for admin activation."}, status=401)
 
-        # Build JWT token
         try:
             user.otp_count = 0
         except Exception:
@@ -153,7 +152,22 @@ class LoginAPIView(APIView):
 
         return Response({"token": token, "user": profile_data})
 
+class countuserAPIView(APIView):
+    def get(self, request):
+        total_users = User.objects.count()
+        verified_users = User.objects(is_verified="yes").count()
+        teacher = User.objects(role="teacher").count()
+        student = User.objects(role="student").count()
+        department = Department.objects.count()
 
+        data = {
+            "total_users": total_users,
+            "verified_users": verified_users,
+            "teacher": teacher,
+            "department": department,
+            "student": student
+        }
+        return Response(data)
 # Verify OTP
 class VerifyOTPAPIView(APIView):
     permission_classes = (permissions.AllowAny,)
@@ -178,7 +192,7 @@ class VerifyOTPAPIView(APIView):
             user.save()
             return Response({"error": "Invalid OTP"}, status=400)
 
-        # check expiry (10 minutes)
+        # (10 minutes)
         if not user.otp_created_at:
             return Response({"error": "OTP timestamp missing"}, status=400)
 
@@ -205,11 +219,33 @@ class VerifyOTPAPIView(APIView):
         user.otp = None
         user.otp_created_at = None
         user.save()
+        if user.is_active != "yes":
+            for a in User.objects(role="admin", is_active="yes"):
+                create_notification(
+                    user=a.id,
+                    title="New Inactive User",
+                    message=f"A new user {user.name} ({user.email}) has registered and is pending activation.",
+                    notification_type="announcement"
+                )
+            channel_layer = get_channel_layer()
+
+            async_to_sync(channel_layer.group_send)(
+            "admin_inactive_users",   # group name for admin inactive users
+            {
+                "type": "inactive_user_event",
+                "event": "new_user_registered",
+                "data": {
+            "id": str(user.id),
+            "name": user.name,
+            "email": user.email,
+            "is_active": user.is_active
+                }
+            }
+        )
         return Response({"message": "Email verified successfully"})
 
 
 # Resend OTP
-# Resend OTP with cooldown protection
 class ResendOTPAPIView(APIView):
     permission_classes = (permissions.AllowAny,)
 
@@ -230,7 +266,6 @@ class ResendOTPAPIView(APIView):
             cooldown = datetime.timedelta(minutes=1)
             now = timezone.now()
 
-            # ensure otp_created_at is aware
             try:
                 user_ts = user.otp_created_at
                 if timezone.is_naive(user_ts):
@@ -249,6 +284,7 @@ class ResendOTPAPIView(APIView):
             return Response({"message": "A new OTP has been sent to your email."}, status=200)
         except Exception as e:
             return Response({"error": "Failed to resend OTP", "detail": str(e)}, status=500)
+
 
 
 class ProfileAPIView(APIView):
@@ -277,18 +313,32 @@ class ProfileAPIView(APIView):
         serializer = ProfileUpdateSerializer(data=request.data, partial=True)
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
-
+        send ='notification'
         validated = serializer.validated_data
         for field in ["name", "batch"]:
             if field in validated:
                 setattr(user, field, validated[field])
-                
+         
+        if "email" in validated:
+            new_email = validated["email"]
+            if user.email_change_count <= 0:
+                return Response({"error": "Email change limit reached"}, status=400)
+            if new_email != user.email:
+                if User.objects(email=new_email).first():
+                    return Response({"error": "Email already in use"}, status=400)
+                user.email = new_email
+                user.is_verified = "no"
+                user.is_active = "no"
+                user.email_change_count = max(0, user.email_change_count - 1)
+                send = 'new_email'
+                create_and_send_otp(user)        
         if "department" in validated:
             code = validated["department"]
             dept = Department.objects(code=code).first()
             if not dept:
                 return Response({"error": "Invalid department code"}, status=400)
             user.department = dept
+            send = 'new_Department'
 
         if "profile_picture" in request.FILES:
             try:
@@ -299,8 +349,15 @@ class ProfileAPIView(APIView):
                     except Exception:
                         pass
                 user.profile_picture = upload_image(request.FILES["profile_picture"])
+                send = 'new_profile_picture'
             except Exception as e:
                 return Response({"error": "Image upload failed", "detail": str(e)}, status=500)
+            create_notification(
+                user=user,  # pass the full user object
+                title=f"{send} updated",
+                message=f"A {send} has updated in your profile.",
+                notification_type="announcement"
+            )
 
         user.save()
         return Response({"message": "Profile updated successfully"})
@@ -309,7 +366,7 @@ class ProfileAPIView(APIView):
 
 
 
-# Manager/Admin: Add Department
+# Admin: Add Department
 class DepartmentCreateAPIView(APIView):
     authentication_classes = (JWTAuthentication,)
 
@@ -335,7 +392,7 @@ class DepartmentCreateAPIView(APIView):
         return Response({"message": "Department created successfully"}, status=201)
 
 
-# Manager/Admin: List inactive users + activate
+#Admin: List inactive users + activate
 class InactiveUsersAPIView(APIView):
     authentication_classes = (JWTAuthentication,)
 

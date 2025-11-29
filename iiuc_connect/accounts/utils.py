@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from accounts.models import User
 
-# === JWT helpers ===
+
 def generate_jwt(user_id, days=7):
     iat = int(time.time())
     exp = iat + days * 24 * 3600
@@ -27,7 +27,6 @@ def decode_jwt(token):
         return None
 
 
-# === OTP helpers ===
 OTP_TTL_MINUTES = 10
 
 

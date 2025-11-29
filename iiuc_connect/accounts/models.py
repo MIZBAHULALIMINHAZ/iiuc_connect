@@ -30,6 +30,7 @@ class User(Document):
     batch = StringField()           
     profile_picture = StringField()  # URL (Cloudinary)
     otp_count = IntField(default=0)
+    email_change_count = IntField(default=1)
 
 
     meta = {

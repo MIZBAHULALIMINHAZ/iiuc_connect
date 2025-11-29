@@ -10,11 +10,24 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Routine
 from notification.utils import create_notification
+from notification.utils import send_ws_notification
+from rest_framework.exceptions import NotFound
+from bson import ObjectId
 
 
 class RoutineViewSet(viewsets.ModelViewSet):
     serializer_class = RoutineSerializer
     authentication_classes = (JWTAuthentication,)
+    def get_object(self):
+        pk = self.kwargs.get("pk")
+
+        try:
+            obj = Routine.objects.get(id=pk)
+        except Routine.DoesNotExist:
+            raise NotFound("Routine not found")
+
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def is_admin(self, user):
         return getattr(user, "role", None) == "admin"
@@ -68,15 +81,20 @@ class RoutineViewSet(viewsets.ModelViewSet):
                 student=routine.teacher,
                 course=routine.course,
                 section=routine.section,
-                status="confirmed"
+                status="completed"
             ).save()
         create_notification(
             user=routine.teacher,
             title="Assigned as Teacher",
             message=f"You have been assigned as the teacher for {routine.course.course_code} (Section {routine.section}).",
-            notification_type="course_update"
+            notification_type="announcement"
         )
-
+        #send_ws_notification(
+            #user_id=routine.teacher.id,
+            #title="Assigned as Teacher",
+            #message=f"You have been assigned as the teacher for {routine.course.course_code} (Section {routine.section}).",
+            #notification_type="course_update"
+        #)
         return Response(
             {"message": "Routine created & teacher registered", "routine": serializer.data},
             status=status.HTTP_201_CREATED

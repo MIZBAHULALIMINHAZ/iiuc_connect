@@ -62,7 +62,6 @@ class EventSerializer(serializers.Serializer):
         return event
     def update(self, instance, validated_data):
         for attr, value in validated_data.items():
-            # For lists like managers, you may need special handling
             if attr == "managers":
                 instance.managers = value
             else:
@@ -70,9 +69,7 @@ class EventSerializer(serializers.Serializer):
         instance.save()
         return instance
 
-# ----------------------------
-# Registration Serializer
-# ----------------------------
+# Registration Event Serializer
 class EventRegistrationSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     event = serializers.CharField()
@@ -94,7 +91,6 @@ class EventRegistrationSerializer(serializers.Serializer):
         )
         reg.save()
 
-        # notify user
         send_event_email(
             user.email,
             "Registration Received",
@@ -126,7 +122,7 @@ class EventPaymentSerializer(serializers.Serializer):
         reg.status = "payment_submitted"
         reg.save()
 
-        # notify managers
+        # notify all managers
         for m in reg.event.managers:
             send_event_email(
                 m.email,

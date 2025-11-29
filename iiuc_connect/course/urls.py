@@ -2,7 +2,7 @@ from django.urls import path
 from course.views import CourseViewSet, CourseResourcesAPIView, CourseRegistrationViewSet,  PaymentViewSet
 
 urlpatterns = [
-    # Course CRUD
+    # Course Management
     path("", CourseViewSet.as_view({'get': 'list', 'post': 'create'}), name="course-list-create"),
     path("one/<str:pk>/", CourseViewSet.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name="course-detail"),
 

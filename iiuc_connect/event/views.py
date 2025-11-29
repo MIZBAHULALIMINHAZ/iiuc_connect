@@ -38,10 +38,95 @@ class EventViewSet(viewsets.ViewSet):
 
     # EVENT LIST
     def list(self, request):
-        events = Event.objects(is_active=True)
-        data = EventSerializer(events, many=True).data
-        return Response(data)
+        user = request.user
 
+        # -------------------------------------------------------
+        # 1) Admin & Teacher → See ALL events
+        # -------------------------------------------------------
+        if user.role in ["admin", "teacher"]:
+            events = Event.objects(is_active=True)
+            return Response(EventSerializer(events, many=True).data)
+
+        # -------------------------------------------------------
+        # 2) Event Creator or Manager → See ALL their events
+        # -------------------------------------------------------
+        creator_manager_events = Event.objects(
+            is_active=True,
+            __raw__={
+                "$or": [
+                    {"creator": user.id},
+                    {"managers": user.id}
+                ]
+            }
+        )
+
+        # -------------------------------------------------------
+        # 3) Student Filtering Logic
+        # -------------------------------------------------------
+        dept = user.department
+        batch = user.batch
+
+        # Missing department or batch → only show events they created/managed
+        if not dept or not batch:
+            return Response(EventSerializer(creator_manager_events, many=True).data)
+
+        dept_code = dept.code
+
+        student_filtered = Event.objects.filter(
+            is_active=True,
+            departments_allowed=dept,
+            **{f"batches_allowed__{dept_code}__in": [batch]}
+        )
+
+        # -------------------------------------------------------
+        # 4) Combine both lists (creator/manager + filtered)
+        # -------------------------------------------------------
+        final_events = list({e.id: e for e in list(creator_manager_events) + list(student_filtered)}.values())
+
+        return Response(EventSerializer(final_events, many=True).data)
+
+
+class EventDetailViewSet(viewsets.ViewSet):
+    authentication_classes = [JWTAuthentication]
+
+    def retrieve(self, request, pk=None):
+        """
+        Retrieve a single event by ID with proper access control:
+        - Admin & Teacher: always allowed
+        - Creator or Manager: always allowed
+        - Student: only if department + batch match
+        """
+        try:
+            event = Event.objects.get(id=pk, is_active=True)
+        except Event.DoesNotExist:
+            return Response({"error": "Event not found"}, status=404)
+
+        user = request.user
+
+        # ---------- Admin & Teacher ----------
+        if user.role in ["admin", "teacher"]:
+            return Response(EventSerializer(event).data)
+
+        # ---------- Creator or Manager ----------
+        if str(event.creator.id) == str(user.id) or str(user.id) in [str(m.id) for m in event.managers]:
+            return Response(EventSerializer(event).data)
+
+        # ---------- Student Department + Batch ----------
+        if not user.department or not user.batch:
+            return Response({"error": "Access denied"}, status=403)
+
+        dept_code = user.department.code
+        allowed_dept_codes = [d.code for d in event.departments_allowed]
+
+        if dept_code not in allowed_dept_codes:
+            return Response({"error": "Your department is not allowed for this event"}, status=403)
+
+        allowed_batches_for_dept = event.batches_allowed.get(dept_code, [])
+        if user.batch not in allowed_batches_for_dept:
+            return Response({"error": "Your batch is not allowed for this event"}, status=403)
+
+        # ---------- Passed all checks ----------
+        return Response(EventSerializer(event).data)
 
 class EventRegistrationViewSet(viewsets.ViewSet):
     authentication_classes = [JWTAuthentication]
@@ -74,17 +159,23 @@ class EventPaymentViewSet(viewsets.ViewSet):
         action = request.data.get("action")  # approve / reject
         
         payment = EventPayment.objects.get(id=pk)
-
+        reg = payment.registration
+        user = reg.user
         if action == "approve":
             payment.verification_status = "approved"
             payment.verified_by = request.user
             payment.verified_at = timezone.now()
             payment.save()
 
-            reg = payment.registration
+
             reg.status = "approved"
             reg.save()
-
+            create_notification(
+                user=user,
+                title=f"Payment Aproved",
+                message=f"Your payment for the event '{reg.event.title}' has been approved.",
+                notification_type="announcement"
+            )
             return Response({"message": "Payment approved."})
 
         elif action == "reject":
@@ -92,8 +183,12 @@ class EventPaymentViewSet(viewsets.ViewSet):
             payment.verified_by = request.user
             payment.verified_at = timezone.now()
             payment.save()
-
-            reg = payment.registration
+            create_notification(
+                user=user,
+                title=f"Payment Rejected",
+                message=f"Your payment for the event '{reg.event.title}' has been rejected.contact support.",
+                notification_type="announcement"
+            )
             reg.status = "pending_payment"
             reg.save()
 
@@ -123,7 +218,7 @@ class GuestLoginView(APIView):
         payload = {
             "guest_id": str(guest.id),
             "email": guest.email,
-            "events": guest.events,  # list of event IDs
+            "events": guest.events,  
             "exp": timezone.now() + timezone.timedelta(hours=24)
         }
 
@@ -209,17 +304,21 @@ Thank you!
 
 class EndEventView(APIView):
     """
-    Event creator/admin clicks 'End Event' -> triggers guest deletion
+    Event creator/admin/manager clicks 'End Event' -> triggers guest deletion
     """
+    authentication_classes = [JWTAuthentication]
+
     def post(self, request, event_id):
         try:
             event = Event.objects.get(id=event_id)
         except Event.DoesNotExist:
             return Response({"error": "Event not found"}, status=404)
 
-        # Only creator or admin can trigger
         user = request.user  # JWT authenticated user
-        if not (user.id == str(event.creator.id) or user.role == 'admin'):
+
+        # Permission check: creator, any manager, or admin
+        manager_ids = [str(m.id) for m in event.managers]
+        if not (str(user.id) == str(event.creator.id) or str(user.id) in manager_ids or user.role == 'admin'):
             return Response({"error": "Permission denied"}, status=403)
 
         # Set event inactive
@@ -232,6 +331,19 @@ class EndEventView(APIView):
         return Response({
             "message": f"Event ended successfully. {deleted_count} guest(s) deleted."
         })
+
+
+class EventDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+
+    def get(self, request, event_id):
+        try:
+            event = Event.objects.get(id=event_id, is_active=True)
+        except Event.DoesNotExist:
+            return Response({"error": "Event not found"}, status=404)
+
+        return Response(EventSerializer(event).data)
+
 
 
 class GuestEventListView(APIView):
@@ -322,6 +434,13 @@ class EventEditView(APIView):
         for manager in updated_event.managers:
             create_notification(
                 user=manager,
+                title="Event Updated",
+                message=f"The event '{updated_event.title}' has been updated.",
+                notification_type="announcement"
+            )
+        for user in EventRegistration.objects(event=updated_event):
+            create_notification(
+                user=user.user,
                 title="Event Updated",
                 message=f"The event '{updated_event.title}' has been updated.",
                 notification_type="announcement"

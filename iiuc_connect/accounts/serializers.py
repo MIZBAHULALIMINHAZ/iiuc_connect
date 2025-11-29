@@ -19,6 +19,7 @@ class OTPVerifySerializer(serializers.Serializer):
     otp = serializers.CharField()
 
 class ProfileUpdateSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False)
     name = serializers.CharField(required=False)
     department = serializers.CharField(required=False, allow_null=True)
     batch = serializers.CharField(required=False, allow_null=True)
@@ -36,14 +37,13 @@ class ProfileSerializer(serializers.Serializer):
     is_verified = serializers.CharField()
     is_active = serializers.CharField()
 
-# Department Serializer
+
 class DepartmentSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     name = serializers.CharField(max_length=200)
     code = serializers.CharField(max_length=50)
     is_active = serializers.CharField(read_only=True)
 
-# User Activation Serializer
 class UserActivationSerializer(serializers.Serializer):
     id = serializers.CharField()
     email = serializers.EmailField()

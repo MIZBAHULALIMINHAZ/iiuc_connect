@@ -30,8 +30,6 @@ class JWTAuthentication(BaseAuthentication):
         if not user:
             raise exceptions.AuthenticationFailed("User not found")
 
-        # DRF expects a (user, auth) tuple. Since we don't have a Django user object,
-        # return the mongoengine Document as user and the raw token as auth.
         return (user, token)
 
 

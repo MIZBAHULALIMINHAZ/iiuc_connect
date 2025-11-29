@@ -15,9 +15,6 @@ class RoutineSerializer(serializers.Serializer):
     def validate(self, data):
         instance = getattr(self, "instance", None)  # Existing instance in update
 
-        # ------------------------
-        # 1) Resolve IDs or fallback to instance
-        # ------------------------
         course_id = data.get("course") or (str(instance.course.id) if instance else None)
         teacher_id = data.get("teacher") or (str(instance.teacher.id) if instance else None)
         dept_id = data.get("department") or (str(instance.department.id) if instance else None)
@@ -33,9 +30,6 @@ class RoutineSerializer(serializers.Serializer):
         if not department:
             raise serializers.ValidationError("Invalid department ID")
 
-        # ------------------------
-        # 2) Resolve other fields
-        # ------------------------
         day = data.get("day") or (instance.day if instance else None)
         period = data.get("period") or (instance.period if instance else None)
         section = data.get("section") or (instance.section if instance else None)
@@ -43,9 +37,6 @@ class RoutineSerializer(serializers.Serializer):
 
         qs = Routine.objects
 
-        # ------------------------
-        # 3) Conflict checks (ignore self during update)
-        # ------------------------
 
         # Teacher conflict
         conflict = qs(teacher=teacher, day=day, period=period, section=section)
@@ -68,9 +59,6 @@ class RoutineSerializer(serializers.Serializer):
         if conflict.first():
             raise serializers.ValidationError("Course already scheduled at this time for this section")
 
-        # ------------------------
-        # 4) Attach objects and resolved fields
-        # ------------------------
         data["course"] = course
         data["teacher"] = teacher
         data["department"] = department
