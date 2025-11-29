@@ -111,18 +111,28 @@ class RegisterAPIView(APIView):
                 return Response({"error": "Image upload failed", "detail": str(e)}, status=500)
 
         
-        # When a new user is registered:
+        # -------------------- Safe Stats Update --------------------
         stats = Stats.objects.first()
         if not stats:
             stats = Stats()
-        stats.total_users += 1
+            stats.save()
+
+        # Ensure all fields exist
+        for field in ["total_users", "verified_users", "teacher", "student", "department"]:
+            if not hasattr(stats, field) or getattr(stats, field) is None:
+                setattr(stats, field, 0)
+
+        # Atomic increment dictionary
+        inc_dict = {"total_users": 1}
         if user.is_verified == "yes":
-            stats.verified_users += 1
+            inc_dict["verified_users"] = 1
         if user.role == "teacher":
-            stats.teacher += 1
+            inc_dict["teacher"] = 1
         elif user.role == "student":
-            stats.student += 1
-        stats.save()
+            inc_dict["student"] = 1
+
+        Stats.objects(id=stats.id).update_one(**{f"inc__{k}": v for k, v in inc_dict.items()})
+        # ------------------------------------------------------------
 
         user.save()
         create_and_send_otp(user)
@@ -399,12 +409,19 @@ class DepartmentCreateAPIView(APIView):
             code=data["code"],
             is_active="yes"
         )
-        # When a new user is registered:
+# Safe Stats update for department increment
         stats = Stats.objects.first()
         if not stats:
             stats = Stats()
-        stats.department += 1
-        stats.save()
+            stats.save()
+
+# Ensure the field exists
+        if not hasattr(stats, "department") or stats.department is None:
+            stats.department = 0
+
+# Atomic increment
+        Stats.objects(id=stats.id).update_one(inc__department=1)
+
 
         dept.save()
         return Response({"message": "Department created successfully"}, status=201)
