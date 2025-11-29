@@ -10,7 +10,7 @@ from accounts.serializers import (
     DepartmentListSerializer, RegisterSerializer, LoginSerializer, OTPVerifySerializer,
     ProfileUpdateSerializer, ProfileSerializer
 )
-from .models import User, Department
+from .models import Stats, User, Department
 from .utils import create_and_send_otp, generate_jwt
 from django.conf import settings
 import jwt
@@ -110,6 +110,20 @@ class RegisterAPIView(APIView):
             except Exception as e:
                 return Response({"error": "Image upload failed", "detail": str(e)}, status=500)
 
+        
+        # When a new user is registered:
+        stats = Stats.objects.first()
+        if not stats:
+            stats = Stats()
+        stats.total_users += 1
+        if user.is_verified == "yes":
+            stats.verified_users += 1
+        if user.role == "teacher":
+            stats.teacher += 1
+        elif user.role == "student":
+            stats.student += 1
+        stats.save()
+
         user.save()
         create_and_send_otp(user)
         return Response({"message": "User created. OTP sent to email."}, status=201)
@@ -152,22 +166,19 @@ class LoginAPIView(APIView):
 
         return Response({"token": token, "user": profile_data})
 
+    
 class countuserAPIView(APIView):
     def get(self, request):
-        total_users = User.objects.count()
-        verified_users = User.objects(is_verified="yes").count()
-        teacher = User.objects(role="teacher").count()
-        student = User.objects(role="student").count()
-        department = Department.objects.count()
-
+        stats = Stats.objects.first()
         data = {
-            "total_users": total_users,
-            "verified_users": verified_users,
-            "teacher": teacher,
-            "department": department,
-            "student": student
+            "total_users": stats.total_users if stats else 0,
+            "verified_users": stats.verified_users if stats else 0,
+            "teacher": stats.teacher if stats else 0,
+            "department": stats.department if stats else 0,
+            "student": stats.student if stats else 0
         }
         return Response(data)
+
 # Verify OTP
 class VerifyOTPAPIView(APIView):
     permission_classes = (permissions.AllowAny,)
@@ -388,6 +399,13 @@ class DepartmentCreateAPIView(APIView):
             code=data["code"],
             is_active="yes"
         )
+        # When a new user is registered:
+        stats = Stats.objects.first()
+        if not stats:
+            stats = Stats()
+        stats.department += 1
+        stats.save()
+
         dept.save()
         return Response({"message": "Department created successfully"}, status=201)
 

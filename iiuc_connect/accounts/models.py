@@ -47,3 +47,10 @@ class User(Document):
         return check_password_hash(self.password_hash, password)
 
 
+# accounts/models.py
+class Stats(Document):
+    total_users = IntField(default=0)
+    verified_users = IntField(default=0)
+    teacher = IntField(default=0)
+    student = IntField(default=0)
+    department = IntField(default=0)
