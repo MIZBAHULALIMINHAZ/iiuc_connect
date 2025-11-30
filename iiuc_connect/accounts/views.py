@@ -111,7 +111,7 @@ class RegisterAPIView(APIView):
                 return Response({"error": "Image upload failed", "detail": str(e)}, status=500)
 
         
-        # -------------------- Safe Stats Update --------------------
+
         stats = Stats.objects.first()
         if not stats:
             stats = Stats()
@@ -132,7 +132,6 @@ class RegisterAPIView(APIView):
             inc_dict["student"] = 1
 
         Stats.objects(id=stats.id).update_one(**{f"inc__{k}": v for k, v in inc_dict.items()})
-        # ------------------------------------------------------------
 
         user.save()
         create_and_send_otp(user)

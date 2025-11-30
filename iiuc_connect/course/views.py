@@ -268,34 +268,23 @@ class PaymentViewSet(viewsets.ViewSet):
         user = request.user
         data = []
 
-        # ---------------------- STUDENT ----------------------
         if getattr(user, "role", None) == "student":
-            # 1) get student's registrations
             regs = CourseRegistration.objects(student=user).only('id')
-
-            # 2) filter Payments using registration IDs
             payments = Payment.objects(registration__in=[r.id for r in regs])
 
-        # ---------------------- TEACHER ----------------------
         elif getattr(user, "role", None) == "teacher":
             from routine.models import Routine
 
-            # courses assigned to teacher
             assigned_courses = Routine.objects(teacher=user).only('course')
 
-            # registrations for these courses
             regs = CourseRegistration.objects(
                 course__in=[r.course.id for r in assigned_courses]
             ).only('id')
-
-            # payments for these registrations
             payments = Payment.objects(registration__in=[r.id for r in regs])
 
-        # ---------------------- ADMIN ----------------------
         else:
             payments = Payment.objects.all()
 
-        # ---------------------- SERIALIZE ----------------------
         for payment in payments:
             data.append(PaymentSerializer(payment).data)
 
