@@ -51,6 +51,15 @@ class UserActivationSerializer(serializers.Serializer):
     name = serializers.CharField()
     is_active = serializers.CharField()
 
+class TeacherListSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    name = serializers.CharField()
+    email = serializers.EmailField()
+    student_id = serializers.CharField()
+    department = serializers.CharField(source="department.name", allow_null=True)
+    profile_picture = serializers.CharField(allow_null=True)
+
+
 class DepartmentListSerializer(serializers.Serializer):
     id = serializers.CharField()
     name = serializers.CharField()

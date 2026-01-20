@@ -8,7 +8,7 @@ import cloudinary
 from rest_framework import status, permissions
 from accounts.serializers import (
     DepartmentListSerializer, RegisterSerializer, LoginSerializer, OTPVerifySerializer,
-    ProfileUpdateSerializer, ProfileSerializer
+    ProfileUpdateSerializer, ProfileSerializer, TeacherListSerializer
 )
 from .models import Stats, User, Department
 from .utils import create_and_send_otp, generate_jwt
@@ -460,3 +460,17 @@ class DepartmentListAPIView(APIView):
         departments = Department.objects(is_active="yes")
         serializer = DepartmentListSerializer(departments, many=True)
         return Response(serializer.data)
+
+class TeacherListAPIView(APIView):
+    authentication_classes = (JWTAuthentication,)
+
+    def get(self, request):
+        if request.user.role != "admin":
+            return Response({"error": "Permission denied"}, status=403)
+
+        teachers = User.objects(role="teacher")
+        serializer = TeacherListSerializer(teachers, many=True)
+        return Response({
+            "count": len(teachers),
+            "teachers": serializer.data
+        })

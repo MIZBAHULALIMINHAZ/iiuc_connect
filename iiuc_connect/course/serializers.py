@@ -2,11 +2,6 @@ from rest_framework import serializers
 from .models import Course, CourseRegistration, Payment
 from accounts.models import Department, User
 
-from rest_framework import serializers
-from accounts.models import Department
-from .models import Course
-
-
 class CourseSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
     course_code = serializers.CharField()
@@ -64,11 +59,6 @@ class CourseSerializer(serializers.Serializer):
         }
 
 
-
-from rest_framework import serializers
-from .models import CourseRegistration, Course, Payment
-from accounts.models import User
-
 class CourseRegistrationSerializer(serializers.Serializer):
     id = serializers.SerializerMethodField()
     student = serializers.SerializerMethodField()
@@ -90,7 +80,6 @@ class CourseRegistrationSerializer(serializers.Serializer):
         if not request:
             raise serializers.ValidationError("Request context missing")
 
-        # ✅ student সবসময় লগইন করা ইউজার থেকে নেওয়া হবে
         student = request.user  
 
         course_id = validated_data.get('course') or request.data.get('course')
@@ -100,8 +89,6 @@ class CourseRegistrationSerializer(serializers.Serializer):
 
         if not course:
             raise serializers.ValidationError("Invalid course")
-
-        # Prevent duplicate registration
         existing = CourseRegistration.objects(student=student, course=course, section=section).first()
         if existing:
             return existing
@@ -111,9 +98,6 @@ class CourseRegistrationSerializer(serializers.Serializer):
         return reg
 
 
-
-from rest_framework import serializers
-from .models import Payment, CourseRegistration
 
 class PaymentSerializer(serializers.Serializer):
     id = serializers.SerializerMethodField()
@@ -140,8 +124,6 @@ class PaymentSerializer(serializers.Serializer):
             status="completed"
         )
         payment.save()
-
-        # Update registration status
         reg.status = "confirmed"
         reg.save()
 
@@ -151,4 +133,3 @@ class PaymentSerializer(serializers.Serializer):
             setattr(instance, field, value)
         instance.save()
         return instance
-

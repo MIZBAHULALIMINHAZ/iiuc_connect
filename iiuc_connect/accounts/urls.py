@@ -1,6 +1,6 @@
 # accounts/urls.py
 from django.urls import path
-from accounts.views import DepartmentCreateAPIView, DepartmentListAPIView, InactiveUsersAPIView, RegisterAPIView, LoginAPIView, ResendOTPAPIView, VerifyOTPAPIView, ProfileAPIView,countuserAPIView
+from accounts.views import DepartmentCreateAPIView, DepartmentListAPIView, InactiveUsersAPIView, RegisterAPIView, LoginAPIView, ResendOTPAPIView, TeacherListAPIView, VerifyOTPAPIView, ProfileAPIView,countuserAPIView
 
 urlpatterns = [
     path("register/", RegisterAPIView.as_view(), name="register"),
@@ -11,7 +11,9 @@ urlpatterns = [
     
     path("departments/add/", DepartmentCreateAPIView.as_view(), name="add-department"),
     path("departments/", DepartmentListAPIView.as_view(), name="list-departments"),
-
+    
+    path("teacher/", TeacherListAPIView.as_view(), name="list-departments"),
+    
     path("users/inactive/", InactiveUsersAPIView.as_view(), name="inactive-users"),
     
     path("total_user/",countuserAPIView.as_view(),name="total_user"),

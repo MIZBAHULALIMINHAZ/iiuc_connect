@@ -1,3 +1,4 @@
+import requests
 from notification.utils import create_notification
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -8,6 +9,10 @@ from accounts.models import Department, User
 from accounts.views import upload_image, delete_image, extract_public_id
 from accounts.authentication import JWTAuthentication
 from rest_framework import viewsets, status
+import uuid
+from rest_framework import viewsets
+from django.conf import settings
+
 
 class CourseViewSet(viewsets.ViewSet):
     authentication_classes = (JWTAuthentication,)
@@ -295,6 +300,7 @@ class PaymentViewSet(viewsets.ViewSet):
         serializer.is_valid(raise_exception=True)
         payment = serializer.save()
         return Response(PaymentSerializer(payment).data, status=201)
+
     def retrieve(self, request, pk=None):
         payment = Payment.objects(id=pk).first()
         if not payment:
