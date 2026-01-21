@@ -81,7 +81,7 @@ class RoutineViewSet(viewsets.ModelViewSet):
                 student=routine.teacher,
                 course=routine.course,
                 section=routine.section,
-                status="completed"
+                status="confirmed"
             ).save()
         create_notification(
             user=routine.teacher,
