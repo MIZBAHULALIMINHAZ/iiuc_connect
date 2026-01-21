@@ -150,6 +150,9 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # CORS
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # front-end dev
-    "https://your_domain.com", # production frontend
+    "http://localhost:5173",      # Vite default port
+    "http://127.0.0.1:5173",      # Alternative localhost
+    "http://localhost:3000",      # Create React App default
+    "http://127.0.0.1:3000",      # Alternative
+    "https://iiuc-connect.onrender.com",  # Your backend itself
 ]
