@@ -14,7 +14,7 @@ def create_notification(user: User, title: str, message: str, notification_type=
     notif.save()
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
-        f"notifications_{user.student_id}",
+        f"notifications_{user.id}",
         {
             "type": "send_notification",
             "data": {

@@ -245,7 +245,7 @@ class VerifyOTPAPIView(APIView):
         if user.is_active != "yes":
             for a in User.objects(role="admin", is_active="yes"):
                 create_notification(
-                    user=a.id,
+                    user=a,  # pass the full user object
                     title="New Inactive User",
                     message=f"A new user {user.name} ({user.email}) has registered and is pending activation.",
                     notification_type="announcement"
