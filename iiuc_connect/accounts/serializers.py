@@ -50,6 +50,7 @@ class UserActivationSerializer(serializers.Serializer):
     student_id = serializers.CharField()
     name = serializers.CharField()
     is_active = serializers.CharField()
+    role = serializers.CharField()
 
 class TeacherListSerializer(serializers.Serializer):
     id = serializers.CharField()

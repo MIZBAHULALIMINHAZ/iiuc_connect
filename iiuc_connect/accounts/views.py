@@ -93,6 +93,9 @@ class RegisterAPIView(APIView):
             is_active =  "yes"
         else:
             is_active = "no"
+        role = data["role"]
+        if role == "teacher":
+            is_active = "no"
         user = User(
             student_id=data["student_id"],
             email=data["email"],
